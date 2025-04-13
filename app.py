@@ -2,14 +2,15 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-from utils import eeg_to_spectrogram
 import gdown
 import os
-
-# 🌟 Define FixedDropout to handle custom layer issue
+from utils import eeg_to_spectrogram
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_custom_objects
 import tensorflow.keras.backend as K
+
+# Set the page config before any other Streamlit commands
+st.set_page_config(page_title="Brain EEG Classifier", layout="wide")
 
 # Add custom style to the app
 st.markdown("""
@@ -98,35 +99,34 @@ get_custom_objects().update({'FixedDropout': FixedDropout})
 # 🧠 Streamlit App Start
 st.title("🧠 Harmful Brain Activity Classifier")
 
+# Define the function to load models from Google Drive
 @st.cache_resource
 def load_models():
+    # URLs of models from Google Drive
     model_urls = [
-        "https://drive.google.com/uc?id=19vagTsjJushCJ25YikZzkCTyaLFfmfO-",  # EffNetB0_Fold0.h5
-        "https://drive.google.com/uc?id=1LhptLaTjdDQ7KAoKzYCgUqNrvDFdOyci",  # EffNetB0_Fold1.h5
-        "https://drive.google.com/uc?id=1iYXG31bFpLT-eIIFCk7qLSKnd67kwUP8",  # EffNetB0_Fold2.h5
-        "https://drive.google.com/uc?id=1e7AEIA2sdJid1T5_HVDfTZz2NzWGYVhZ",  # EffNetB0_Fold3.h5
-        "https://drive.google.com/uc?id=13KoESOQzPG1GwaFD5BBRT-SudBhkMD-k"   # EffNetB0_Fold4.h5
+        'https://drive.google.com/uc?export=download&id=19vagTsjJushCJ25YikZzkCTyaLFfmfO-',
+        'https://drive.google.com/uc?export=download&id=1LhptLaTjdDQ7KAoKzYCgUqNrvDFdOyci',
+        'https://drive.google.com/uc?export=download&id=1iYXG31bFpLT-eIIFCk7qLSKnd67kwUP8',
+        'https://drive.google.com/uc?export=download&id=1e7AEIA2sdJid1T5_HVDfTZz2NzWGYVhZ',
+        'https://drive.google.com/uc?export=download&id=13KoESOQzPG1GwaFD5BBRT-SudBhkMD-k'
     ]
     
-    model_dir = "models"
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-
-    # Download and load models
-    models = []
+    model_files = []
+    
     for i, url in enumerate(model_urls):
-        model_file = f"{model_dir}/EffNetB0_Fold{i}.h5"
-        
-        if not os.path.exists(model_file):
-            gdown.download(url, model_file, quiet=False)
-        
+        # Download the model from Google Drive
+        output_path = f"EffNetB0_Fold{i}.h5"
+        gdown.download(url, output_path, quiet=False)
+        # Load the model
         model = tf.keras.models.load_model(
-            model_file,
+            output_path,
             custom_objects={'FixedDropout': FixedDropout}
         )
-        models.append(model)
-    
-    return models
+        model_files.append(model)
+        # Clean up the downloaded model file after loading
+        os.remove(output_path)
+        
+    return model_files
 
 # User uploads the EEG file
 uploaded_file = st.file_uploader("📁 Upload EEG `.parquet` File", type=["parquet"])
