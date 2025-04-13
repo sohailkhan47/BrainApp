@@ -45,16 +45,22 @@ def load_models():
         if not os.path.exists(model_path):
             st.info(f"Downloading model {i + 1}...")
             url = f"https://drive.google.com/uc?id={file_id}"
-            gdown.download(url, model_path, quiet=False)
+            try:
+                gdown.download(url, model_path, quiet=False)
+            except Exception as e:
+                st.error(f"Error downloading model {i + 1}: {e}")
+                continue
 
-        model = tf.keras.models.load_model(
-            model_path,
-            custom_objects={'FixedDropout': FixedDropout}
-        )
-        models.append(model)
+        try:
+            model = tf.keras.models.load_model(
+                model_path,
+                custom_objects={'FixedDropout': FixedDropout}
+            )
+            models.append(model)
+        except Exception as e:
+            st.error(f"Error loading model {i + 1}: {e}")
 
     return models
-
 
 # Add custom style to the app
 st.markdown("""
@@ -151,32 +157,33 @@ if uploaded_file:
         # Load models
         models = load_models()
 
-        # Make predictions
-        preds = [model.predict(x)[0] for model in models]
-        final_pred = np.mean(preds, axis=0)
+        if models:
+            # Make predictions
+            preds = [model.predict(x)[0] for model in models]
+            final_pred = np.mean(preds, axis=0)
 
-        labels = ['Seizure', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other']
+            labels = ['Seizure', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other']
 
-        # Find the label with the highest probability
-        max_prob_index = np.argmax(final_pred)
-        max_prob_label = labels[max_prob_index]
-        max_prob_value = final_pred[max_prob_index]
+            # Find the label with the highest probability
+            max_prob_index = np.argmax(final_pred)
+            max_prob_label = labels[max_prob_index]
+            max_prob_value = final_pred[max_prob_index]
 
-        # Display the results
-        st.subheader("📊 Predicted Probabilities:")
+            # Display the results
+            st.subheader("📊 Predicted Probabilities:")
 
-        # Create two columns for displaying results
-        result_columns = st.columns(2)
-        for i, label in enumerate(labels):
-            prob = final_pred[i]
-            with result_columns[i % 2]:
-                color = "green" if label == max_prob_label else "gray"
-                st.markdown(f"<div style='color: {color}; font-weight: bold;'><b>{label}</b>: {prob:.4f}</div>", unsafe_allow_html=True)
+            # Create two columns for displaying results
+            result_columns = st.columns(2)
+            for i, label in enumerate(labels):
+                prob = final_pred[i]
+                with result_columns[i % 2]:
+                    color = "green" if label == max_prob_label else "gray"
+                    st.markdown(f"<div style='color: {color}; font-weight: bold;'><b>{label}</b>: {prob:.4f}</div>", unsafe_allow_html=True)
 
-        st.subheader("📝 Diagnosis Result:")
-        st.markdown(f"<div class='diagnosis-result'>Highest Probability Diagnosis: {max_prob_label}</div>", unsafe_allow_html=True)
-        st.markdown(f"*Probability*: {max_prob_value:.4f}")
-        st.markdown("💡 This indicates the most likely harmful brain activity identified in the EEG data.")
+            st.subheader("📝 Diagnosis Result:")
+            st.markdown(f"<div class='diagnosis-result'>Highest Probability Diagnosis: {max_prob_label}</div>", unsafe_allow_html=True)
+            st.markdown(f"*Probability*: {max_prob_value:.4f}")
+            st.markdown("💡 This indicates the most likely harmful brain activity identified in the EEG data.")
 
     except Exception as e:
         st.error(f"Error: {e}")
