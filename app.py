@@ -5,14 +5,9 @@ import pandas as pd
 import gdown
 import os
 from utils import eeg_to_spectrogram
-from tensorflow.keras.utils import get_custom_objects
-from custom_layers import FixedDropout  # Import FixedDropout from custom_layers
 
 # Set the page config before any other Streamlit commands
 st.set_page_config(page_title="Brain EEG Classifier", layout="wide")
-
-# 👇 Register FixedDropout globally
-get_custom_objects().update({'FixedDropout': FixedDropout})
 
 # 🌟 Streamlit App Start
 st.title("🧠 Harmful Brain Activity Classifier")
@@ -26,11 +21,9 @@ def load_model(model_url, model_name):
         gdown.download(model_url, output_path, quiet=False)
         st.write(f"Model {model_name} downloaded successfully!")
 
-        # Load the model with the custom FixedDropout layer
-        model = tf.keras.models.load_model(
-            output_path,
-            custom_objects={'FixedDropout': FixedDropout}  # Ensure custom layer is passed
-        )
+        # Load the model without custom layers for testing purposes
+        model = tf.keras.models.load_model(output_path)
+        
         # Clean up the downloaded model file after loading
         os.remove(output_path)
         
