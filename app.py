@@ -3,11 +3,14 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from utils import eeg_to_spectrogram
-import os
-import gdown
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_custom_objects
 import tensorflow.keras.backend as K
+import os
+import gdown
+
+# Set the page config before any other Streamlit commands
+st.set_page_config(page_title="Brain EEG Classifier", layout="wide")
 
 # 🌟 Define FixedDropout to handle custom layer issue
 class FixedDropout(Dropout):
@@ -20,16 +23,40 @@ class FixedDropout(Dropout):
             training = K.learning_phase()
         return super(FixedDropout, self).call(inputs, training)
 
-# Register FixedDropout class globally
+# 👇 Register FixedDropout globally
 get_custom_objects().update({'FixedDropout': FixedDropout})
 
-# 🌟 Set Streamlit page configuration
-st.set_page_config(page_title="Brain EEG Classifier", layout="wide")
+# 🌟 Load models function with Google Drive integration
+@st.cache_resource
+def load_models():
+    models = []
+    file_ids = [
+        '19vagTsjJushCJ25YikZzkCTyaLFfmfO-',  # Fold 0
+        '1LhptLaTjdDQ7KAoKzYCgUqNrvDFdOyci',  # Fold 1
+        '1iYXG31bFpLT-eIIFCk7qLSKnd67kwUP8',  # Fold 2
+        '1e7AEIA2sdJid1T5_HVDfTZz2NzWGYVhZ',  # Fold 3
+        '13KoESOQzPG1GwaFD5BBRT-SudBhkMD-k'   # Fold 4
+    ]
 
-# 🧠 Streamlit App Start
-st.title("🧠 Harmful Brain Activity Classifier")
+    os.makedirs("models", exist_ok=True)
 
-# Add custom CSS styling for the app
+    for i, file_id in enumerate(file_ids):
+        model_path = f"models/EffNetB0_Fold{i}.h5"
+        if not os.path.exists(model_path):
+            st.info(f"Downloading model {i + 1}...")
+            url = f"https://drive.google.com/uc?id={file_id}"
+            gdown.download(url, model_path, quiet=False)
+
+        model = tf.keras.models.load_model(
+            model_path,
+            custom_objects={'FixedDropout': FixedDropout}
+        )
+        models.append(model)
+
+    return models
+
+
+# Add custom style to the app
 st.markdown("""
     <style>
         /* Custom styling */
@@ -99,58 +126,35 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🌟 Function to download models from Google Drive
-@st.cache_resource
-def load_models():
-    models = []
-    file_ids = [
-        'ID_FOR_FOLD0', 'ID_FOR_FOLD1', 'ID_FOR_FOLD2', 'ID_FOR_FOLD3', 'ID_FOR_FOLD4'
-    ]
-    
-    # Ensure models directory exists
-    os.makedirs("models", exist_ok=True)
+# 🧠 Streamlit App Start
+st.title("🧠 Harmful Brain Activity Classifier")
 
-    for i, file_id in enumerate(file_ids):
-        model_path = f"models/EffNetB0_Fold{i}.h5"
-        if not os.path.exists(model_path):
-            st.info(f"Downloading model {i + 1}...")
-            url = f"https://drive.google.com/uc?id={file_id}"
-            gdown.download(url, model_path, quiet=False)
-        
-        model = tf.keras.models.load_model(
-            model_path,
-            custom_objects={'FixedDropout': FixedDropout}
-        )
-        models.append(model)
-    
-    return models
-
-# Handle EEG file upload
+# User uploads the EEG file
 uploaded_file = st.file_uploader("📁 Upload EEG `.parquet` File", type=["parquet"])
 
 if uploaded_file:
     st.success("EEG file uploaded. Processing...")
 
     try:
-        # Read the uploaded parquet file
         df = pd.read_parquet(uploaded_file)
-        st.write("📋 EEG Columns Found:", df.columns.tolist())  # Helpful debug message
+        st.write("📋 EEG Columns Found:", df.columns.tolist())  # Helpful debug
 
-        # Generate spectrogram from EEG data
+        # Generate the spectrogram
         spec = eeg_to_spectrogram(df)
 
-        # Prepare the input for model prediction (expanding dimensions for the models)
+        # Prepare input for the model
         x = np.zeros((1, 128, 256, 8), dtype='float32')
         for i in range(4):
             x[0,:,:,i] = spec[:,:,i]
             x[0,:,:,i+4] = spec[:,:,i]
 
-        # Load models and predict
+        # Load models
         models = load_models()
+
+        # Make predictions
         preds = [model.predict(x)[0] for model in models]
         final_pred = np.mean(preds, axis=0)
 
-        # Labels for prediction output
         labels = ['Seizure', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other']
 
         # Find the label with the highest probability
@@ -158,9 +162,10 @@ if uploaded_file:
         max_prob_label = labels[max_prob_index]
         max_prob_value = final_pred[max_prob_index]
 
-        # Display prediction probabilities
+        # Display the results
         st.subheader("📊 Predicted Probabilities:")
 
+        # Create two columns for displaying results
         result_columns = st.columns(2)
         for i, label in enumerate(labels):
             prob = final_pred[i]
@@ -168,7 +173,6 @@ if uploaded_file:
                 color = "green" if label == max_prob_label else "gray"
                 st.markdown(f"<div style='color: {color}; font-weight: bold;'><b>{label}</b>: {prob:.4f}</div>", unsafe_allow_html=True)
 
-        # Display the final diagnosis result
         st.subheader("📝 Diagnosis Result:")
         st.markdown(f"<div class='diagnosis-result'>Highest Probability Diagnosis: {max_prob_label}</div>", unsafe_allow_html=True)
         st.markdown(f"*Probability*: {max_prob_value:.4f}")
