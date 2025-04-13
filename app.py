@@ -114,18 +114,24 @@ def load_models():
     model_files = []
     
     for i, url in enumerate(model_urls):
-        # Download the model from Google Drive
-        output_path = f"EffNetB0_Fold{i}.h5"
-        gdown.download(url, output_path, quiet=False)
-        # Load the model
-        model = tf.keras.models.load_model(
-            output_path,
-            custom_objects={'FixedDropout': FixedDropout}
-        )
-        model_files.append(model)
-        # Clean up the downloaded model file after loading
-        os.remove(output_path)
-        
+        try:
+            # Download the model from Google Drive
+            output_path = f"EffNetB0_Fold{i}.h5"
+            gdown.download(url, output_path, quiet=False)
+            st.write(f"Model {i+1} downloaded successfully!")
+
+            # Load the model
+            model = tf.keras.models.load_model(
+                output_path,
+                custom_objects={'FixedDropout': FixedDropout}
+            )
+            model_files.append(model)
+            # Clean up the downloaded model file after loading
+            os.remove(output_path)
+            
+        except Exception as e:
+            st.error(f"Error loading model {i+1}: {e}")
+    
     return model_files
 
 # User uploads the EEG file
@@ -148,31 +154,35 @@ if uploaded_file:
             x[0,:,:,i+4] = spec[:,:,i]
 
         models = load_models()
-        preds = [model.predict(x)[0] for model in models]
-        final_pred = np.mean(preds, axis=0)
+        
+        if models:
+            preds = [model.predict(x)[0] for model in models]
+            final_pred = np.mean(preds, axis=0)
 
-        labels = ['Seizure', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other']
+            labels = ['Seizure', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other']
 
-        # Find the label with the highest probability
-        max_prob_index = np.argmax(final_pred)
-        max_prob_label = labels[max_prob_index]
-        max_prob_value = final_pred[max_prob_index]
+            # Find the label with the highest probability
+            max_prob_index = np.argmax(final_pred)
+            max_prob_label = labels[max_prob_index]
+            max_prob_value = final_pred[max_prob_index]
 
-        # Display the results
-        st.subheader("📊 Predicted Probabilities:")
+            # Display the results
+            st.subheader("📊 Predicted Probabilities:")
 
-        # Create two columns for displaying results
-        result_columns = st.columns(2)
-        for i, label in enumerate(labels):
-            prob = final_pred[i]
-            with result_columns[i % 2]:
-                color = "green" if label == max_prob_label else "gray"
-                st.markdown(f"<div style='color: {color}; font-weight: bold;'><b>{label}</b>: {prob:.4f}</div>", unsafe_allow_html=True)
+            # Create two columns for displaying results
+            result_columns = st.columns(2)
+            for i, label in enumerate(labels):
+                prob = final_pred[i]
+                with result_columns[i % 2]:
+                    color = "green" if label == max_prob_label else "gray"
+                    st.markdown(f"<div style='color: {color}; font-weight: bold;'><b>{label}</b>: {prob:.4f}</div>", unsafe_allow_html=True)
 
-        st.subheader("📝 Diagnosis Result:")
-        st.markdown(f"<div class='diagnosis-result'>Highest Probability Diagnosis: {max_prob_label}</div>", unsafe_allow_html=True)
-        st.markdown(f"*Probability*: {max_prob_value:.4f}")
-        st.markdown("💡 This indicates the most likely harmful brain activity identified in the EEG data.")
-
+            st.subheader("📝 Diagnosis Result:")
+            st.markdown(f"<div class='diagnosis-result'>Highest Probability Diagnosis: {max_prob_label}</div>", unsafe_allow_html=True)
+            st.markdown(f"*Probability*: {max_prob_value:.4f}")
+            st.markdown("💡 This indicates the most likely harmful brain activity identified in the EEG data.")
+        else:
+            st.error("No models were loaded successfully.")
+            
     except Exception as e:
         st.error(f"Error: {e}")
