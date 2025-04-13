@@ -5,98 +5,16 @@ import pandas as pd
 import gdown
 import os
 from utils import eeg_to_spectrogram
-from tensorflow.keras.layers import Dropout
 from tensorflow.keras.utils import get_custom_objects
-import tensorflow.keras.backend as K
+from custom_layers import FixedDropout  # Import FixedDropout from custom_layers
 
 # Set the page config before any other Streamlit commands
 st.set_page_config(page_title="Brain EEG Classifier", layout="wide")
 
-# Add custom style to the app
-st.markdown("""
-    <style>
-        /* Custom styling */
-        .stApp {
-            background-color: #f0f0f5;
-        }
-
-        /* Title and header styles */
-        .css-18e3th9 {
-            font-size: 3em;
-            font-family: 'Arial', sans-serif;
-            color: #4B8B3B;
-        }
-
-        /* Style for subheader */
-        .css-1v0mbdj {
-            font-size: 1.5em;
-            font-family: 'Arial', sans-serif;
-            color: #444;
-        }
-
-        /* Styling for the prediction results */
-        .prediction-result {
-            font-size: 1.2em;
-            font-family: 'Arial', sans-serif;
-            color: #333;
-            font-weight: bold;
-        }
-
-        /* Style for diagnosis results */
-        .diagnosis-result {
-            font-size: 1.3em;
-            font-family: 'Arial', sans-serif;
-            color: #4B8B3B;
-            font-weight: bold;
-        }
-
-        /* Buttons styling */
-        .css-1d391kg {
-            background-color: #4B8B3B;
-            color: white;
-            padding: 10px 30px;
-            font-size: 1.1em;
-            font-weight: bold;
-            border-radius: 5px;
-        }
-
-        /* Add spacing between sections */
-        .stTextInput, .stFileUploader {
-            margin-bottom: 20px;
-        }
-
-        /* Style for results list */
-        .stMarkdown {
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-
-        /* Hover effects for results */
-        .stButton:hover {
-            background-color: #388E3C;
-        }
-
-        .stRadio:hover {
-            cursor: pointer;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# 🌟 Define FixedDropout class
-class FixedDropout(Dropout):
-    def __init__(self, rate, noise_shape=None, seed=None, **kwargs):
-        super(FixedDropout, self).__init__(rate, noise_shape=noise_shape, seed=seed, **kwargs)
-        self.supports_masking = True
-
-    def call(self, inputs, training=None):
-        if training is None:
-            training = K.learning_phase()
-        return super(FixedDropout, self).call(inputs, training)
-
-# 👇 Register it globally
+# 👇 Register FixedDropout globally
 get_custom_objects().update({'FixedDropout': FixedDropout})
 
-# 🧠 Streamlit App Start
+# 🌟 Streamlit App Start
 st.title("🧠 Harmful Brain Activity Classifier")
 
 # Define the function to load models from Google Drive
