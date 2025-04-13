@@ -38,10 +38,10 @@ def load_models():
             gdown.download(url, output_path, quiet=False)
             st.write(f"Model {i+1} downloaded successfully!")
 
-            # Load the model
+            # Load the model with the custom FixedDropout layer
             model = tf.keras.models.load_model(
                 output_path,
-                custom_objects={'FixedDropout': FixedDropout}
+                custom_objects={'FixedDropout': FixedDropout}  # Ensure custom layer is passed
             )
             model_files.append(model)
             # Clean up the downloaded model file after loading
